@@ -594,9 +594,9 @@ function updateAffectionUI() {
     
     let level = 1;
     let label = "Budding friendship";
-    if (affectionPoints > 80) { level = 4; label = "Moe Dev Overlords"; }
-    else if (affectionPoints > 50) { level = 3; label = "Inseparable Duo"; }
-    else if (affectionPoints > 30) { level = 2; label = "Trusty Partner"; }
+    if (affectionPoints >= 90) { level = 4; label = "Moe Dev Overlords"; }
+    else if (affectionPoints >= 70) { level = 3; label = "Inseparable Duo"; }
+    else if (affectionPoints >= 40) { level = 2; label = "Trusty Partner"; }
     
     val.innerText = `Level ${level} (${affectionPoints}%)`;
     
