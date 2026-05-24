@@ -73,6 +73,8 @@ let motivationLevel = 95; // Scale 0 to 100
 let pixiApp = null;
 let currentModel = null;
 let isBuilding = false;
+let tokenUsage = 12000; // 12K initial tokens used
+const maxTokenQuota = 100000; // 100K token limit
 
 // Task Checklist States
 let tasks = [
@@ -173,6 +175,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Footer actions
     initFooterControls();
+
+    // Initialize Quota UI
+    updateQuotaUI();
+
+    // Reset Quota listener
+    document.getElementById("quota-reset-btn").addEventListener("click", resetTokenQuota);
 
     // Welcome speech
     updateSpeechBubble("Hello there, Master! Ready to write some code today? Let's build something awesome!");
@@ -348,6 +356,11 @@ const runPlanBtn = document.getElementById("run-plan-btn");
 runPlanBtn.addEventListener("click", runTaskExecutorPlan);
 
 async function runTaskExecutorPlan() {
+    if (tokenUsage >= maxTokenQuota) {
+        alert("We are out of tokens! Please click the Quota Bar at the top to refill first!");
+        return;
+    }
+
     const pendingTasks = tasks.filter(t => !t.completed);
     if (pendingTasks.length === 0) {
         alert("All tasks are already completed, Master! Add some more!");
@@ -375,6 +388,18 @@ async function runTaskExecutorPlan() {
     for (let i = 0; i < pendingTasks.length; i++) {
         const task = pendingTasks[i];
         
+        // Deduct tokens
+        const success = addTokens(3200);
+        if (!success) {
+            task.running = false;
+            renderTasks();
+            isBuilding = false;
+            runPlanBtn.disabled = false;
+            runPlanBtn.innerHTML = `<i data-lucide="play"></i> Execute Approved Plan`;
+            lucide.createIcons();
+            return;
+        }
+
         // Mark task running in UI
         task.running = true;
         renderTasks();
@@ -588,6 +613,59 @@ function updateMotivationLevel(val) {
     document.getElementById("mascot-focus").innerText = `${motivationLevel}%`;
 }
 
+// Token Usage Helpers
+function addTokens(amount) {
+    if (tokenUsage >= maxTokenQuota) return false;
+
+    tokenUsage = Math.min(maxTokenQuota, tokenUsage + amount);
+    updateQuotaUI();
+
+    if (tokenUsage >= maxTokenQuota) {
+        // Quota fully exhausted!
+        triggerMascotMotion("build_error");
+        const preset = MASCOT_PRESETS[currentMascotKey];
+        updateSpeechBubble(`Wah! Master, we've completely hit our ${maxTokenQuota/1000}K token quota! I can't process any more code... Click my quota bar to refill! ⊙﹏⊙`);
+        setMascotStatusText("Sad");
+        writeTerminalLine(`[FATAL] Out of tokens. Quota limit of ${maxTokenQuota.toLocaleString()} reached. Request blocked.`, "error");
+        return false;
+    }
+    return true;
+}
+
+function updateQuotaUI() {
+    const bar = document.getElementById("quota-bar");
+    const val = document.getElementById("quota-val");
+    const display = document.getElementById("quota-reset-btn");
+
+    const percentage = (tokenUsage / maxTokenQuota) * 100;
+    bar.style.width = `${percentage}%`;
+    val.innerText = `${(tokenUsage / 1000).toFixed(1)}K / ${maxTokenQuota / 1000}K`;
+
+    if (percentage >= 90) {
+        display.classList.add("warning-state");
+    } else {
+        display.classList.remove("warning-state");
+    }
+}
+
+function resetTokenQuota() {
+    if (tokenUsage < 15000) {
+        updateSpeechBubble("Moe Quota is already fresh! We have plenty of gravity power left! ٩(◕‿◕)۶");
+        triggerMascotMotion("talk");
+        return;
+    }
+
+    tokenUsage = 12000; // Reset to initial usage
+    updateQuotaUI();
+    
+    const preset = MASCOT_PRESETS[currentMascotKey];
+    updateSpeechBubble(`Moe quota refilled! Master's credit card is magical! Let's code some more! (≧∇≦)ﾉ`);
+    triggerMascotMotion("build_success");
+    setMascotStatusText("Cheerful");
+    writeTerminalLine("[SYSTEM] Reset token usage quota. Resources fully cleared.", "success");
+    boostAffection(2);
+}
+
 function setMascotStatusText(status) {
     const moodEl = document.getElementById("mascot-mood");
     moodEl.innerText = status;
@@ -752,12 +830,19 @@ function removeTypingIndicator() {
 
 // Send Message handler
 function handleSendMessage() {
+    if (tokenUsage >= maxTokenQuota) {
+        alert("We are out of tokens! Please click the Quota Bar at the top to refill first!");
+        return;
+    }
+
     const chatInput = document.getElementById("chat-input");
     const text = chatInput.value.trim();
     if (!text) return;
 
     chatInput.value = "";
     appendChatBubble("user", text);
+    
+    addTokens(450); // prompt cost
 
     // Mascot enters thinking state
     setMascotStatusText("Thinking");
@@ -776,6 +861,8 @@ function handleSendMessage() {
 // Simulated Reply Router
 function processAiReply(userInput) {
     const normalizedInput = userInput.toLowerCase();
+    
+    addTokens(1250); // completion cost
     
     // Find matching keyword response
     let response = AI_RESPONSES.find(res => {
@@ -853,9 +940,16 @@ function initFooterControls() {
 
 // Build Simulation
 async function simulateProjectBuild() {
+    if (tokenUsage >= maxTokenQuota) {
+        alert("We are out of tokens! Please click the Quota Bar in the header to refill first.");
+        return;
+    }
+    
     isBuilding = true;
     setMascotStatusText("Working");
     updateMotivationLevel(100);
+    
+    addTokens(2200); // build cost
     
     triggerMascotMotion("build_start");
     updateSpeechBubble("Build sequence started! Keep an eye on the output modules, Master!");
@@ -882,8 +976,15 @@ async function simulateProjectBuild() {
 
 // Test Simulation
 async function simulateProjectTests() {
+    if (tokenUsage >= maxTokenQuota) {
+        alert("We are out of tokens! Please click the Quota Bar in the header to refill first.");
+        return;
+    }
+    
     isBuilding = true;
     setMascotStatusText("Working");
+    
+    addTokens(1800); // test cost
     
     writeTerminalLine("npm run test --coverage", "command");
     writeTerminalLine("[VITEST] Running test modules...", "info");
@@ -913,8 +1014,15 @@ async function simulateProjectTests() {
 
 // Error Simulation
 async function simulateCompileError() {
+    if (tokenUsage >= maxTokenQuota) {
+        alert("We are out of tokens! Please click the Quota Bar in the header to refill first.");
+        return;
+    }
+    
     isBuilding = true;
     setMascotStatusText("Shocked");
+    
+    addTokens(1000); // error cost
     
     triggerMascotMotion("build_error");
     updateSpeechBubble("Eeeek! A syntax error! The compiler crashed! Oh no...");
