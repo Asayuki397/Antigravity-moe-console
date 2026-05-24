@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity // Moe Console</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="index.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Nav Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="graviton-orb"></div>
+                <h1>ANTIGRAVITY <span class="header-subtitle">// MOE CONSOLE v1.0.0</span></h1>
+            </div>
+            <div class="header-mid">
+                <div class="status-indicator online">
+                    <span class="pulse-dot"></span>
+                    <span>AGENT ONLINE</span>
+                </div>
+                <div class="status-divider"></div>
+                <div class="active-task-badge">
+                    <i data-lucide="cpu" class="icon-spin"></i>
+                    <span id="header-active-task">IDLE</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="affection-display" title="Affection Level with Mascot">
+                    <i data-lucide="heart" class="heart-icon filled"></i>
+                    <span id="affection-label">Affection:</span>
+                    <div class="heart-meter">
+                        <div class="heart-meter-fill" id="affection-bar" style="width: 30%"></div>
+                    </div>
+                    <span id="affection-val">Level 1 (30%)</span>
+                </div>
+                <div class="control-divider"></div>
+                <button class="settings-btn" id="theme-toggle" title="Toggle Visual Style">
+                    <i data-lucide="sparkles"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Grid -->
+        <main class="app-main">
+            <!-- Left Column: Workspace File Explorer & Task list -->
+            <section class="panel glass-panel left-panel">
+                <div class="panel-header">
+                    <div class="tab-selectors">
+                        <button class="tab-btn active" data-tab="explorer">
+                            <i data-lucide="folder-tree"></i> EXPLORER
+                        </button>
+                        <button class="tab-btn" data-tab="tasks">
+                            <i data-lucide="list-todo"></i> TASKS
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <!-- Tab 1: Explorer -->
+                    <div class="tab-content active" id="tab-explorer">
+                        <div class="explorer-header">
+                            <span>WORKSPACE: C:\antigravity\project</span>
+                            <div class="explorer-actions">
+                                <button title="New File" onclick="simulateNewFile()"><i data-lucide="file-plus"></i></button>
+                                <button title="Refresh" onclick="refreshExplorer()"><i data-lucide="refresh-cw"></i></button>
+                            </div>
+                        </div>
+                        <ul class="file-tree" id="project-file-tree">
+                            <!-- Files populated by JS -->
+                        </ul>
+                    </div>
+
+                    <!-- Tab 2: Tasks -->
+                    <div class="tab-content" id="tab-tasks">
+                        <div class="task-progress-box">
+                            <div class="progress-info">
+                                <span>Task Completion</span>
+                                <span id="task-percentage">0%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" id="task-progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="add-task-form">
+                            <input type="text" id="new-task-input" placeholder="Plan a new task...">
+                            <button id="add-task-btn" title="Add Task"><i data-lucide="plus"></i></button>
+                        </div>
+
+                        <ul class="task-list" id="task-board">
+                            <!-- Tasks populated by JS -->
+                        </ul>
+
+                        <div class="task-actions-footer">
+                            <button id="run-plan-btn" class="btn btn-primary btn-full">
+                                <i data-lucide="play"></i> Execute Approved Plan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center Column: Main Chat Console -->
+            <section class="panel glass-panel center-panel">
+                <div class="panel-header">
+                    <div class="header-title">
+                        <i data-lucide="message-square"></i>
+                        <span>ANTIGRAVITY CONVERSATION STREAM</span>
+                    </div>
+                    <div class="header-actions">
+                        <button id="clear-chat-btn" title="Clear Conversation"><i data-lucide="trash-2"></i></button>
+                    </div>
+                </div>
+                <div class="panel-content chat-area" id="chat-messages">
+                    <!-- Chat bubbles populated by JS -->
+                </div>
+                <div class="chat-input-bar">
+                    <div class="input-wrapper">
+                        <textarea id="chat-input" placeholder="Type a message or command for Antigravity..." rows="1"></textarea>
+                        <button id="chat-send-btn" title="Send Message">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Live2D Waifu Sanctuary -->
+            <section class="panel glass-panel right-panel">
+                <div class="panel-header">
+                    <div class="header-title">
+                        <i data-lucide="smile"></i>
+                        <span>MASCOT SANCTUARY</span>
+                    </div>
+                </div>
+                <div class="panel-content mascot-container">
+                    <!-- Character Details & Selector -->
+                    <div class="mascot-config">
+                        <div class="selector-wrapper">
+                            <label for="mascot-selector">Select Mascot:</label>
+                            <select id="mascot-selector">
+                                <option value="haru">Haru (Cubism 4)</option>
+                                <option value="shizuku">Shizuku (Cubism 2.1)</option>
+                                <option value="pio">Pio (Potion Maker)</option>
+                                <option value="tia">Tia (Potion Maker)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Speech Bubble -->
+                    <div class="mascot-bubble" id="mascot-speech-bubble">
+                        <div class="bubble-arrow"></div>
+                        <div class="bubble-content" id="mascot-speech-text">
+                            Hello there, Master! Ready to write some code today? Let's build something awesome!
+                        </div>
+                    </div>
+
+                    <!-- Canvas Wrapper -->
+                    <div class="canvas-wrapper" id="canvas-parent">
+                        <div class="canvas-loading" id="canvas-loading-spinner">
+                            <div class="spinner"></div>
+                            <span>Summoning anime girl...</span>
+                        </div>
+                        <canvas id="live2d-canvas"></canvas>
+                    </div>
+
+                    <!-- Mascot Status & Quick Actions -->
+                    <div class="mascot-footer">
+                        <div class="status-grid">
+                            <div class="status-card">
+                                <span class="status-label">MOOD</span>
+                                <span class="status-value" id="mascot-mood">Cheerful</span>
+                            </div>
+                            <div class="status-card">
+                                <span class="status-label">MOTIVATION</span>
+                                <span class="status-value" id="mascot-focus">95%</span>
+                            </div>
+                        </div>
+
+                        <!-- Manual Reaction Triggers -->
+                        <div class="interaction-console">
+                            <span class="console-title">Interactions</span>
+                            <div class="interaction-buttons">
+                                <button class="btn btn-sm btn-outline" id="react-pat" title="Give Headpats">
+                                    <i data-lucide="hand"></i> Headpat
+                                </button>
+                                <button class="btn btn-sm btn-outline" id="react-gift" title="Give Coffee">
+                                    <i data-lucide="coffee"></i> Coffee
+                                </button>
+                                <button class="btn btn-sm btn-outline" id="react-poke" title="Poke Character">
+                                    <i data-lucide="fingerprint"></i> Poke
+                                </button>
+                                <button class="btn btn-sm btn-outline" id="react-talk" title="Talk to her">
+                                    <i data-lucide="message-circle"></i> Talk
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Panel: System Console / Log terminal -->
+        <footer class="app-footer-panel glass-panel">
+            <div class="footer-panel-header">
+                <div class="footer-title">
+                    <i data-lucide="terminal"></i>
+                    <span>SYSTEM TERMINAL LOGS</span>
+                </div>
+                <div class="footer-controls">
+                    <button class="btn btn-sm btn-outline btn-terminal-act" id="term-run-build">
+                        <i data-lucide="package"></i> Build Project
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-terminal-act" id="term-run-test">
+                        <i data-lucide="check-circle2"></i> Run Tests
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-terminal-act" id="term-trigger-err">
+                        <i data-lucide="alert-triangle"></i> Simulate Error
+                    </button>
+                    <div class="footer-control-divider"></div>
+                    <button id="clear-terminal-btn" title="Clear Console"><i data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div class="terminal-content" id="terminal-output">
+                <!-- Log streams -->
+            </div>
+        </footer>
+    </div>
+
+    <!-- Live2D Libraries -->
+    <!-- Load PixiJS v7 -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+    
+    <!-- Load Live2D Cubism Core Runtimes -->
+    <!-- Cubism 4 Core (for moc3 models like Haru) -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <!-- Cubism 2.1 Core (for moc models like Shizuku, Pio, Tia) -->
+    <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+    
+    <!-- Load pixi-live2d-display -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+
+    <!-- Main JavaScript Code -->
+    <script src="index.js"></script>
+</body>
+</html>
