@@ -68,7 +68,8 @@ const MASCOT_PRESETS = {
 
 // Global App States
 let currentMascotKey = 'haru';
-let affectionPoints = 30; // Scale 0 to 100
+let affectionPoints = 30; // 0 to 99 %
+let affectionLevel = 1;   // 1 to 100 Level
 let motivationLevel = 95; // Scale 0 to 100
 let pixiApp = null;
 let currentModel = null;
@@ -181,6 +182,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Reset Quota listener
     document.getElementById("quota-reset-btn").addEventListener("click", resetTokenQuota);
+
+    // Load Affection data
+    initAffection();
 
     // Welcome speech
     updateSpeechBubble("Hello there, Master! Ready to write some code today? Let's build something awesome!");
@@ -581,31 +585,108 @@ function updateSpeechBubble(text) {
 }
 
 // Affection and Motivation updates
-function boostAffection(pts) {
-    affectionPoints = Math.min(100, affectionPoints + pts);
-    updateAffectionUI();
+async function initAffection() {
+    try {
+        const response = await fetch('/affection');
+        if (response.ok) {
+            const data = await response.json();
+            affectionPoints = data.points;
+            affectionLevel = data.level;
+            writeTerminalLine(`[SYSTEM] Loaded offline affection profile: Level ${affectionLevel} (${affectionPoints}%)`, "success");
+            updateAffectionUI(false);
+            return;
+        }
+    } catch (e) {
+        console.log("Server API unavailable, falling back to Local Storage:", e.message);
+    }
+
+    // Local Storage fallback
+    const saved = localStorage.getItem('antigravity_affection');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            affectionPoints = data.points;
+            affectionLevel = data.level;
+            writeTerminalLine(`[SYSTEM] Loaded browser affection profile: Level ${affectionLevel} (${affectionPoints}%)`, "info");
+        } catch (e) {
+            affectionPoints = 30;
+            affectionLevel = 1;
+        }
+    } else {
+        affectionPoints = 30;
+        affectionLevel = 1;
+    }
+    updateAffectionUI(false);
 }
 
-function updateAffectionUI() {
+async function saveAffection() {
+    const data = { points: affectionPoints, level: affectionLevel };
+    
+    // Save to local storage (always works)
+    localStorage.setItem('antigravity_affection', JSON.stringify(data));
+
+    // Try to save to server file affection.json
+    try {
+        await fetch('/affection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        console.log("Server offline, could not write affection.json to disk:", e.message);
+    }
+}
+
+async function boostAffection(pts) {
+    if (affectionLevel >= 100 && affectionPoints >= 99) return; // Maxed out
+
+    affectionPoints += pts;
+    let didLevelUp = false;
+
+    while (affectionPoints >= 100) {
+        if (affectionLevel < 100) {
+            affectionLevel += 1;
+            affectionPoints -= 100;
+            didLevelUp = true;
+        } else {
+            affectionPoints = 99; // Cap at Level 100, 99%
+            break;
+        }
+    }
+
+    if (didLevelUp) {
+        // Trigger Mascot Level Up cheer
+        triggerMascotMotion("build_success");
+        const preset = MASCOT_PRESETS[currentMascotKey];
+        updateSpeechBubble(`Kyaaa! Level Up! Our affection level has reached **Level ${affectionLevel}**! Master, you're the absolute best! (≧▽≦)♡`);
+        writeTerminalLine(`[SYSTEM] Level Up! Mascot affection has risen to Level ${affectionLevel}!`, "success");
+        setMascotStatusText("Cheerful");
+    }
+
+    await saveAffection();
+    updateAffectionUI(true);
+}
+
+function updateAffectionUI(triggerPulse = false) {
     const bar = document.getElementById("affection-bar");
     const val = document.getElementById("affection-val");
     
     bar.style.width = `${affectionPoints}%`;
     
-    let level = 1;
     let label = "Budding friendship";
-    if (affectionPoints >= 90) { level = 4; label = "Moe Dev Overlords"; }
-    else if (affectionPoints >= 70) { level = 3; label = "Inseparable Duo"; }
-    else if (affectionPoints >= 40) { level = 2; label = "Trusty Partner"; }
+    if (affectionLevel >= 80) label = "Moe Dev Overlords";
+    else if (affectionLevel >= 50) label = "Inseparable Duo";
+    else if (affectionLevel >= 20) label = "Trusty Partners";
     
-    val.innerText = `Level ${level} (${affectionPoints}%)`;
+    val.innerText = `Lvl ${affectionLevel} (${affectionPoints}%) - ${label}`;
     
-    // Trigger heart pulse animation
-    const heart = document.querySelector(".heart-icon");
-    heart.style.animation = "heartBeat 0.5s 2 ease-in-out";
-    setTimeout(() => {
-        heart.style.animation = "heartBeat 1.5s infinite ease-in-out";
-    }, 1000);
+    if (triggerPulse) {
+        const heart = document.querySelector(".heart-icon");
+        heart.style.animation = "heartBeat 0.5s 2 ease-in-out";
+        setTimeout(() => {
+            heart.style.animation = "heartBeat 1.5s infinite ease-in-out";
+        }, 1000);
+    }
 }
 
 function updateMotivationLevel(val) {
