@@ -63,6 +63,22 @@ const MASCOT_PRESETS = {
             build_success: { motion: "happy", exp: null, text: "Build success. All features are verified. Tia is pleased." },
             build_error: { motion: "sad", exp: null, text: "The task encountered a fatal error. Tia is looking for solutions." }
         }
+    },
+    custom: {
+        name: "Custom Mascot",
+        url: "", // Loaded dynamically from input
+        scaleMultiplier: 1.15,
+        xOffset: 0,
+        yOffset: 0,
+        reactions: {
+            headpat: { motion: null, exp: null, text: "Ah! Master's headpats are wonderful! (*^.^*) ♡" },
+            coffee: { motion: null, exp: null, text: "Mmm, coffee! My motivation is fully restored! Let's code!" },
+            poke: { motion: null, exp: null, text: "Hyaah! Don't tickle me, Master! ( > < )" },
+            talk: { motion: null, exp: null, text: "I'm monitoring our custom scripts. Ready to build when you are!" },
+            build_start: { motion: null, exp: null, text: "Rebuilding our custom modules now. Watch the terminal!" },
+            build_success: { motion: null, exp: null, text: "Hurray! The project compiled successfully! Let's deploy!" },
+            build_error: { motion: null, exp: null, text: "Oh no... a syntax error occurred. Let's fix it!" }
+        }
     }
 };
 
@@ -473,6 +489,18 @@ async function initPixi() {
     });
 
     // Load initial mascot
+    const savedMascot = localStorage.getItem('antigravity_active_mascot') || 'haru';
+    currentMascotKey = savedMascot;
+    mascotSelector.value = savedMascot;
+    
+    if (savedMascot === 'custom') {
+        document.getElementById("custom-model-input-wrapper").style.display = 'flex';
+        const savedPath = localStorage.getItem('antigravity_custom_model_path');
+        if (savedPath) {
+            document.getElementById("custom-model-path").value = savedPath;
+        }
+    }
+    
     await loadMascotModel(currentMascotKey);
 }
 
@@ -489,11 +517,28 @@ async function loadMascotModel(charKey) {
             currentModel = null;
         }
 
-        const preset = MASCOT_PRESETS[charKey];
+        let preset = MASCOT_PRESETS[charKey];
         if (!preset) return;
 
+        let modelUrl = preset.url;
+        if (charKey === 'custom') {
+            const customPathInput = document.getElementById("custom-model-path");
+            modelUrl = customPathInput.value.trim();
+            if (!modelUrl) {
+                writeTerminalLine("[Live2D] Please enter a relative path to your local VTube Studio model3.json file.", "warning");
+                spinner.classList.add("hidden");
+                return;
+            }
+            preset.url = modelUrl;
+            
+            // Extract model name from URL/path
+            const urlParts = modelUrl.split('/');
+            const filename = urlParts[urlParts.length - 1];
+            preset.name = filename.replace('.model3.json', '').replace('.model.json', '');
+        }
+
         // Load new model
-        currentModel = await PIXI.live2d.Live2DModel.from(preset.url);
+        currentModel = await PIXI.live2d.Live2DModel.from(modelUrl);
         
         // Mount model
         pixiApp.stage.addChild(currentModel);
@@ -530,7 +575,19 @@ async function loadMascotModel(charKey) {
         writeTerminalLine(`[Live2D] Mascot loaded: ${preset.name}`, "success");
     } catch (e) {
         console.error("Failed to load Live2D Model:", e);
-        writeTerminalLine(`[Live2D ERROR] Failed to load ${charKey} model from CDN. CORS or network error.`, "error");
+        writeTerminalLine(`[Live2D ERROR] Failed to load ${charKey} model. Ensure path is correct and files are served locally.`, "error");
+        
+        // Fallback to Haru if custom model fails to load
+        if (charKey === 'custom') {
+            writeTerminalLine("[Live2D] Falling back to default Haru model...", "info");
+            setTimeout(() => {
+                mascotSelector.value = 'haru';
+                currentMascotKey = 'haru';
+                document.getElementById("custom-model-input-wrapper").style.display = 'none';
+                localStorage.setItem('antigravity_active_mascot', 'haru');
+                loadMascotModel('haru');
+            }, 1000);
+        }
     } finally {
         spinner.classList.add("hidden");
     }
@@ -565,13 +622,42 @@ function resizeModel() {
 
 // Handle Character Switcher dropdown
 const mascotSelector = document.getElementById("mascot-selector");
+const customInputWrapper = document.getElementById("custom-model-input-wrapper");
+const customLoadBtn = document.getElementById("custom-model-load-btn");
+const customPathInput = document.getElementById("custom-model-path");
+
 mascotSelector.addEventListener("change", (e) => {
     currentMascotKey = e.target.value;
-    loadMascotModel(currentMascotKey);
+    localStorage.setItem('antigravity_active_mascot', currentMascotKey);
     
-    const preset = MASCOT_PRESETS[currentMascotKey];
-    updateSpeechBubble(`Hi! I'm ${preset.name}! Ready to help you code! Let's get to work!`);
-    setMascotStatusText("Cheerful");
+    if (currentMascotKey === 'custom') {
+        customInputWrapper.style.display = 'flex';
+        // Auto load saved path if exists
+        const savedPath = localStorage.getItem('antigravity_custom_model_path');
+        if (savedPath) {
+            customPathInput.value = savedPath;
+            loadMascotModel('custom');
+        } else {
+            updateSpeechBubble("Please enter the relative path to your VTube Studio model3.json file and click Load!");
+        }
+    } else {
+        customInputWrapper.style.display = 'none';
+        loadMascotModel(currentMascotKey);
+        
+        const preset = MASCOT_PRESETS[currentMascotKey];
+        updateSpeechBubble(`Hi! I'm ${preset.name}! Ready to help you code! Let's get to work!`);
+        setMascotStatusText("Cheerful");
+    }
+});
+
+customLoadBtn.addEventListener("click", () => {
+    const path = customPathInput.value.trim();
+    if (path) {
+        localStorage.setItem('antigravity_custom_model_path', path);
+        loadMascotModel('custom');
+    } else {
+        alert("Please enter a valid relative path!");
+    }
 });
 
 // Speech bubble updates
@@ -777,6 +863,9 @@ function triggerMascotMotion(motionKey) {
         // Play motion
         if (reaction.motion) {
             currentModel.motion(reaction.motion);
+        } else if (currentMascotKey === 'custom') {
+            // For custom models, play a random available motion if not mapped
+            playRandomCustomModelMotion();
         }
         
         // Play expression if supported
@@ -784,6 +873,19 @@ function triggerMascotMotion(motionKey) {
             currentModel.expression(reaction.exp);
         }
     }
+}
+
+function playRandomCustomModelMotion() {
+    if (!currentModel || !currentModel.internalModel || !currentModel.internalModel.settings) return;
+    
+    const motions = currentModel.internalModel.settings.motions;
+    if (!motions) return;
+    
+    const groups = Object.keys(motions);
+    if (groups.length === 0) return;
+    
+    const randomGroup = groups[Math.floor(Math.random() * groups.length)];
+    currentModel.motion(randomGroup);
 }
 
 // Play mascot reactions (triggered by headpat, poke, coffee, etc.)

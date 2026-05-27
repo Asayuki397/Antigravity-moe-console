@@ -20,6 +20,10 @@ const MIME_TYPES = {
     '.physics3.json': 'application/json',
     '.pose3.json': 'application/json',
     '.userData3.json': 'application/json',
+    '.cdi3.json': 'application/json',
+    '.motion3.json': 'application/json',
+    '.exp3.json': 'application/json',
+    '.wav': 'audio/wav',
 };
 
 const server = http.createServer((req, res) => {
