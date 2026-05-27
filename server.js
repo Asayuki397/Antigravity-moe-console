@@ -86,6 +86,69 @@ const server = http.createServer((req, res) => {
             });
             return;
         }
+    // Intercept /files API
+    if (decodedUrl === '/files') {
+        if (req.method === 'GET') {
+            try {
+                const files = fs.readdirSync(__dirname);
+                const result = files
+                    .filter(file => {
+                        // Exclude hidden files or system files
+                        return !file.startsWith('.') && file !== 'node_modules' && file !== 'affection.json';
+                    })
+                    .map(file => {
+                        const filePath = path.join(__dirname, file);
+                        const stats = fs.statSync(filePath);
+                        
+                        let sizeStr = `${(stats.size / 1024).toFixed(1)} KB`;
+                        if (stats.size < 1024) sizeStr = `${stats.size} B`;
+                        
+                        const ext = path.extname(file).replace('.', '').toLowerCase() || 'txt';
+                        
+                        return {
+                            name: file,
+                            type: ext,
+                            active: false,
+                            size: sizeStr
+                        };
+                    });
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            } catch (e) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: e.message }));
+            }
+            return;
+        }
+        
+        if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', () => {
+                try {
+                    const data = JSON.parse(body);
+                    const newFilePath = path.join(__dirname, data.name);
+                    
+                    // Prevent directory traversal
+                    if (!newFilePath.startsWith(__dirname)) {
+                        res.writeHead(403);
+                        res.end('403 Forbidden');
+                        return;
+                    }
+                    
+                    fs.writeFileSync(newFilePath, '');
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true }));
+                } catch (e) {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ error: e.message }));
+                }
+            });
+            return;
+        }
     }
 
     let filePath = path.join(__dirname, decodedUrl === '/' ? 'index.html' : decodedUrl);

@@ -103,7 +103,7 @@ let tasks = [
 ];
 
 // Project Files States
-const projectFiles = [
+let projectFiles = [
     { name: "index.html", type: "html", active: true, size: "2.1 KB" },
     { name: "index.css", type: "css", active: false, size: "12.4 KB" },
     { name: "index.js", type: "js", active: false, size: "8.6 KB" },
@@ -202,6 +202,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load Affection data
     initAffection();
 
+    // Load workspace files
+    loadWorkspaceFiles();
+
     // Welcome speech
     updateSpeechBubble("Hello there, Master! Ready to write some code today? Let's build something awesome!");
 });
@@ -255,29 +258,80 @@ function renderFileTree() {
     lucide.createIcons({ attrs: { class: 'lucide-icon' } });
 }
 
-function simulateNewFile() {
+async function loadWorkspaceFiles() {
+    try {
+        const response = await fetch('/files');
+        if (response.ok) {
+            const remoteFiles = await response.json();
+            
+            // Retain active file highlighting if possible
+            const activeFile = projectFiles.find(f => f.active);
+            if (activeFile) {
+                const match = remoteFiles.find(f => f.name === activeFile.name);
+                if (match) match.active = true;
+                else if (remoteFiles.length > 0) remoteFiles[0].active = true;
+            } else if (remoteFiles.length > 0) {
+                remoteFiles[0].active = true;
+            }
+            
+            projectFiles = remoteFiles;
+            renderFileTree();
+            return true;
+        }
+    } catch (e) {
+        console.log("Files API unavailable, running in demo mode:", e.message);
+    }
+    return false;
+}
+
+async function simulateNewFile() {
     const fileName = prompt("Enter new filename:");
     if (!fileName) return;
     
-    const ext = fileName.split('.').pop() || 'txt';
-    projectFiles.push({
-        name: fileName,
-        type: ext,
-        active: false,
-        size: "0 B"
-    });
-    renderFileTree();
-    writeTerminalLine(`[FS] Created file: ${fileName}`, "success");
+    // Try to create file on disk via server
+    let createdOnDisk = false;
+    try {
+        const response = await fetch('/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: fileName })
+        });
+        if (response.ok) {
+            createdOnDisk = true;
+            await loadWorkspaceFiles();
+            writeTerminalLine(`[FS] Created file on disk: ${fileName}`, "success");
+        }
+    } catch (e) {
+        console.log("Server offline, could not write file to disk:", e.message);
+    }
+
+    if (!createdOnDisk) {
+        // Fallback demo mode
+        const ext = fileName.split('.').pop() || 'txt';
+        projectFiles.push({
+            name: fileName,
+            type: ext,
+            active: false,
+            size: "0 B"
+        });
+        renderFileTree();
+        writeTerminalLine(`[FS] Created file: ${fileName} (Demo Mode)`, "success");
+    }
     
     // Mascot cheers
     playMascotReaction("headpat");
 }
 
-function refreshExplorer() {
+async function refreshExplorer() {
     writeTerminalLine("[FS] Rescanning workspace directory...", "info");
-    setTimeout(() => {
-        writeTerminalLine("[FS] 6 files scanned. Workspace in sync.", "success");
-    }, 400);
+    const success = await loadWorkspaceFiles();
+    if (success) {
+        writeTerminalLine(`[FS] ${projectFiles.length} files scanned. Workspace in sync.`, "success");
+    } else {
+        setTimeout(() => {
+            writeTerminalLine(`[FS] ${projectFiles.length} files scanned. Workspace in sync. (Demo Mode)`, "success");
+        }, 400);
+    }
 }
 
 // Task board
